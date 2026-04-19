@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu App de Mídias</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1a73e8',
+                        dark: '#121212',
+                        card: '#1e1e1e'
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-dark text-white min-h-screen">
+
+    <div class="container mx-auto px-4 py-6 max-w-6xl">
+        
+        <!-- Cabeçalho -->
+        <header class="text-center mb-8">
+            <h1 class="text-[clamp(1.8rem,5vw,2.8rem)] font-bold text-primary mb-2">
+                <i class="fa fa-film mr-2"></i> Gerenciador de Mídias
+            </h1>
+            <p class="text-gray-400">Armazene e visualize suas fotos e vídeos</p>
+        </header>
+
+        <!-- Área de Upload -->
+        <div id="dropArea" class="border-2 border-dashed border-primary rounded-xl p-10 text-center mb-8 bg-card/50 hover:bg-card/80 transition-all duration-300 cursor-pointer">
+            <i class="fa fa-cloud-upload text-6xl text-primary mb-4"></i>
+            <p class="text-xl mb-2">Arraste seus arquivos aqui</p>
+            <p class="text-sm text-gray-400 mb-4">ou clique para selecionar</p>
+            <label for="fileInput" class="bg-primary hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full cursor-pointer transition">
+                <i class="fa fa-plus mr-2"></i> Selecionar Arquivos
+            </label>
+            <input type="file" id="fileInput" class="hidden" accept="image/*, video/*" multiple>
+        </div>
+
+        <!-- Abas -->
+        <div class="flex justify-center mb-6 border-b border-gray-700">
+            <button class="tab-btn active px-6 py-3 font-bold text-white border-b-4 border-primary" data-tab="all">
+                <i class="fa fa-th-large mr-2"></i> Todos
+            </button>
+            <button class="tab-btn px-6 py-3 font-bold text-gray-400 hover:text-white" data-tab="images">
+                <i class="fa fa-image mr-2"></i> Fotos
+            </button>
+            <button class="tab-btn px-6 py-3 font-bold text-gray-400 hover:text-white" data-tab="videos">
+                <i class="fa fa-video-camera mr-2"></i> Vídeos
+            </button>
+        </div>
+
+        <!-- Galeria -->
+        <div id="gallery" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 min-h-[200px]">
+            <!-- Itens aparecerão aqui -->
+            <div class="col-span-full text-center text-gray-500 py-12">
+                <i class="fa fa-folder-open-o text-5xl mb-4"></i>
+                <p>Nenhuma mídia adicionada ainda.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal de Visualização -->
+    <div id="modal" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-50 p-4">
+        <span id="closeModal" class="absolute top-6 right-6 text-white text-4xl cursor-pointer hover:text-primary">
+            <i class="fa fa-times-circle"></i>
+        </span>
+        <div id="modalContent" class="max-w-full max-h-full"></div>
+    </div>
+
+    <script>
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const gallery = document.getElementById('gallery');
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modalContent');
+        const closeModal = document.getElementById('closeModal');
+        const tabButtons = document.querySelectorAll('.tab-btn');
+
+        let allFiles = [];
+
+        // --- Eventos de Drag and Drop ---
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.add('border-white', 'bg-card');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.remove('border-white', 'bg-card');
+            });
+        });
+
+        dropArea.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFiles);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            processFiles(files);
+        }
+
+        function handleFiles(e) {
+            const files = e.target.files;
+            processFiles(files);
+        }
+
+        function processFiles(files) {
+            if (allFiles.length === 0) gallery.innerHTML = '';
+            
+            Array.from(files).forEach(file => {
+                if (!file.type.match('image.*') && !file.type.match('video.*')) {
+                    alert('Por favor, selecione apenas imagens ou vídeos!');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const item = {
+                        id: Date.now() + Math.random(),
+                        type: file.type.includes('video') ? 'video' : 'image',
+                        url: e.target.result,
+                        name: file.name
+                    };
+                    allFiles.push(item);
+                    displayItem(item);
+                }
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function displayItem(item) {
+            const div = document.createElement('div');
+            div.className = `item-card bg-card rounded-xl overflow-hidden shadow-lg hover:scale-105 transition-transform duration-300 cursor-pointer relative group border border-gray-700`;
+            div.dataset.type = item.type;
+            div.dataset.id = item.id;
+
+            let content = '';
+            if(item.type === 'video') {
+                content = `
+                    <video class="w-full h-48 object-cover" muted>
+                        <source src="${item.url}" type="video/mp4">
+                    </video>
+                    <div class="absolute top-2 right-2 bg-red-600 text-xs font-bold px-2 py-1 rounded">VÍDEO</div>
+                `;
+            } else {
+                content = `
+                    <img src="${item.url}" class="w-full h-48 object-cover" alt="foto">
+                    <div class="absolute top-2 right-2 bg-primary text-xs font-bold px-2 py-1 rounded">FOTO</div>
+                `;
+            }
+
+            div.innerHTML = content;
+            div.addEventListener('click', () => openModal(item));
+            gallery.appendChild(div);
+        }
+
+        // --- Modal ---
+        function openModal(item) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if(item.type === 'video') {
+                modalContent.innerHTML = `<video src="${item.url}" controls autoplay class="max-h-[90vh] rounded"></video>`;
+            } else {
+                modalContent.innerHTML = `<img src="${item.url}" class="max-h-[90vh] rounded" alt="foto">`;
+            }
+        }
+
+        closeModal.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modalContent.innerHTML = '';
+        });
+
+        // --- Filtros por Abas ---
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                
+                tabButtons.forEach(b => {
+                    b.classList.remove('active', 'text-white', 'border-primary');
+                    b.classList.add('text-gray-400');
+                });
+                btn.classList.add('active', 'text-white', 'border-primary');
+
+                const items = document.querySelectorAll('.item-card');
+                items.forEach(card => {
+                    if(tab === 'all') {
+                        card.style.display = 'block';
+                    } else if(card.dataset.type === tab) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
+
+        // Estilo extra para as abas
+        document.head.insertAdjacentHTML("beforeend", `
+            <style>.tab-btn.active{border-bottom-width:4px}</style>
+        `);
+
+    </script>
+</body>
+</html>
